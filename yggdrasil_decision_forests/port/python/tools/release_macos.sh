@@ -17,7 +17,11 @@
 # Running this script inside a python venv may not work.
 set -vex
 
-declare -a python_versions=("3.9" "3.10" "3.11" "3.12" "3.13")
+if [[ -n "${PYTHON_VERSIONS_OVERRIDE:-}" ]]; then
+  python_versions=( ${PYTHON_VERSIONS_OVERRIDE} )
+else
+  python_versions=("3.9" "3.10" "3.11" "3.12" "3.13" "3.14")
+fi
 
 for pyver in "${python_versions[@]}"
 do

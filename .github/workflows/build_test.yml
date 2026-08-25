@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   cc-build-test-matrix:
+    if: github.repository == 'google/yggdrasil-decision-forests'
     name: "C++ Build & Test (Compiler: ${{ matrix.compiler_config }})"
     uses: ./.github/workflows/cc_build_test.yml
     permissions:
@@ -41,6 +42,7 @@ jobs:
         compiler_config: ["gcc"]
 
   python-build-test-matrix:
+    if: github.repository == 'google/yggdrasil-decision-forests'
     name: "Python Build & Test (Python ${{ matrix.python_version }})"
     uses: ./.github/workflows/python_build_test.yml
     permissions:

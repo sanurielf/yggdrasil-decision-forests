@@ -36,6 +36,9 @@ build_and_maybe_test () {
     local ARCHITECTURE=$(uname -m)
 
     local flags="--config=linux_cpp17 --features=-fully_static_link --copt=-DYDF_USE_DYNAMIC_DISPATCH"
+    if [[ -n "${BAZEL_EXTRA_FLAGS:-}" ]]; then
+      flags="${flags} ${BAZEL_EXTRA_FLAGS}"
+    fi
     python -m pip install -r requirements.txt
 
     if [[ "$RUN_TESTS" = 0 ]]; then

@@ -5,11 +5,13 @@ permissions:
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     paths:
       - "yggdrasil_decision_forests/port/python/**"
       - ".github/workflows/python_wheels.yml"
-  pull_request:
+  push:
+    branches:
+      - main
     paths:
       - "yggdrasil_decision_forests/port/python/**"
       - ".github/workflows/python_wheels.yml"

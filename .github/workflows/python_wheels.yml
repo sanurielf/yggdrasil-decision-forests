@@ -50,8 +50,20 @@ jobs:
         working-directory: yggdrasil_decision_forests/port/python
         env:
           CI: "true"
-          PYTHON_VERSIONS_OVERRIDE: ${{ matrix.python_version }}
-        run: ./tools/release_linux.sh
+        run: |
+          docker build -t build_pydf .
+          mkdir -p "${GITHUB_WORKSPACE}/.ci-cache/bazel" \
+            "${GITHUB_WORKSPACE}/.ci-cache/venv-${{ matrix.python_version }}"
+          PY_CANDIDATE="/opt/python/cp${{ matrix.python_tag }}-cp${{ matrix.python_tag }}/bin/python"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/.ci-cache/venv-${{ matrix.python_version }}:/tmp/venv" \
+            -v "${GITHUB_WORKSPACE}/.ci-cache/bazel:/root/.cache" \
+            -v "${GITHUB_WORKSPACE}:/src" \
+            -e CI \
+            -e BAZEL_EXTRA_FLAGS \
+            -w /src/yggdrasil_decision_forests/port/python \
+            build_pydf \
+            "if [ -x ${PY_CANDIDATE} ]; then PY=${PY_CANDIDATE}; else PY=python${{ matrix.python_version }}; fi; \$PY -m venv /tmp/venv && source /tmp/venv/bin/activate && RUN_TESTS=0 ./tools/build_test_linux.sh && ./tools/package_linux.sh"
 
       - name: Check wheel tag
         working-directory: yggdrasil_decision_forests/port/python

@@ -16,14 +16,11 @@
 
 # Builds all python versions for release on Pypi
 #
-# PYTHON_VERSIONS_OVERRIDE: space-separated versions, e.g. "3.14".
 # CI: when true, skip TTY flags and bind-mount host cache directories.
 
 set -vex
 
-if [[ -n "${PYTHON_VERSIONS_OVERRIDE:-}" ]]; then
-  PYTHON_VERSIONS=( ${PYTHON_VERSIONS_OVERRIDE} )
-elif [[ "$INTERACTIVE" = 1 ]]; then
+if [[ "$INTERACTIVE" = 1 ]]; then
   PYTHON_VERSIONS=( 3.12 )
 else
   PYTHON_VERSIONS=( 3.9 3.10 3.11 3.12 3.13 3.14 )

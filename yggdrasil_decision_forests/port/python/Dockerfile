@@ -1,5 +1,4 @@
 # See: https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
-# Image includes CPython 3.9-3.14 under /opt/python/cpXY-cpXY.
 FROM quay.io/pypa/manylinux_2_28_x86_64@sha256:4d62ce9d1ca259171e7cde403686e538e6f8fdc517660a557a66e102577d67d3
 
 WORKDIR /build_tools

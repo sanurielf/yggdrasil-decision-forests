@@ -45,7 +45,7 @@ function install_dependencies() {
   python -m pip install setuptools -U
   python -m pip install build -U
   python -m pip install virtualenv -U
-  python -m pip install auditwheel==6.0.0 --force-reinstall
+  python -m pip install auditwheel==6.8.1 --force-reinstall
 }
 
 function check_is_build() {

@@ -1,0 +1,149 @@
+name: Python Wheels
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "yggdrasil_decision_forests/port/python/**"
+      - ".github/workflows/python_wheels.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "yggdrasil_decision_forests/port/python/**"
+      - ".github/workflows/python_wheels.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BAZEL_EXTRA_FLAGS: --jobs=2 --local_ram_resources=4096
+
+jobs:
+  linux-manylinux:
+    name: "Linux manylinux cp${{ matrix.python_tag }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python_version: "3.14"
+            python_tag: "314"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - name: Restore Bazel cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: .ci-cache/bazel
+          key: ${{ runner.os }}-ydf-wheel-bazel-${{ matrix.python_version }}-${{ hashFiles('yggdrasil_decision_forests/port/python/MODULE.bazel', 'yggdrasil_decision_forests/port/python/.bazelrc', '.bazelversion') }}
+          restore-keys: |
+            ${{ runner.os }}-ydf-wheel-bazel-${{ matrix.python_version }}-
+
+      - name: Build manylinux wheel
+        working-directory: yggdrasil_decision_forests/port/python
+        env:
+          CI: "true"
+        run: |
+          docker build -t build_pydf .
+          mkdir -p "${GITHUB_WORKSPACE}/.ci-cache/bazel" \
+            "${GITHUB_WORKSPACE}/.ci-cache/venv-${{ matrix.python_version }}"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/.ci-cache/venv-${{ matrix.python_version }}:/tmp/venv" \
+            -v "${GITHUB_WORKSPACE}/.ci-cache/bazel:/root/.cache" \
+            -v "${GITHUB_WORKSPACE}:/src" \
+            -e BAZEL_EXTRA_FLAGS \
+            -w /src/yggdrasil_decision_forests/port/python \
+            build_pydf \
+            "python${{ matrix.python_version }} -m venv /tmp/venv && source /tmp/venv/bin/activate && RUN_TESTS=0 ./tools/build_test_linux.sh && ./tools/package_linux.sh"
+
+      - name: Check wheel tag
+        working-directory: yggdrasil_decision_forests/port/python
+        run: |
+          shopt -s nullglob
+          wheels=(dist/ydf-*-cp${{ matrix.python_tag }}-cp${{ matrix.python_tag }}*.manylinux_2_28_*.whl)
+          if [[ ${#wheels[@]} -lt 1 ]]; then
+            echo "No manylinux cp${{ matrix.python_tag }} wheel in dist/"
+            ls -la dist || true
+            exit 1
+          fi
+          ls -lh "${wheels[@]}"
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ydf-cp${{ matrix.python_tag }}-manylinux_x86_64
+          path: yggdrasil_decision_forests/port/python/dist/*.whl
+          if-no-files-found: error
+
+  macos-arm64:
+    name: "macOS arm64 cp${{ matrix.python_tag }}"
+    runs-on: macos-14
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python_version: "3.14"
+            python_tag: "314"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - name: Set up Python ${{ matrix.python_version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: ${{ matrix.python_version }}
+
+      - name: Install Bazelisk
+        run: |
+          curl -L -o /usr/local/bin/bazel \
+            https://github.com/bazelbuild/bazelisk/releases/download/v1.27.0/bazelisk-darwin-arm64
+          chmod +x /usr/local/bin/bazel
+          bazel version
+
+      - name: Restore Bazel cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/bazel
+          key: ${{ runner.os }}-ydf-wheel-bazel-${{ matrix.python_version }}-${{ hashFiles('yggdrasil_decision_forests/port/python/MODULE.bazel', 'yggdrasil_decision_forests/port/python/.bazelrc', '.bazelversion') }}
+          restore-keys: |
+            ${{ runner.os }}-ydf-wheel-bazel-${{ matrix.python_version }}-
+
+      - name: Build macOS wheel
+        working-directory: yggdrasil_decision_forests/port/python
+        env:
+          RUN_TESTS: "0"
+          CC: clang
+        run: |
+          echo "startup --output_user_root=${HOME}/.cache/bazel" >> .bazelrc
+          python -m venv "${RUNNER_TEMP}/ydf-venv"
+          source "${RUNNER_TEMP}/ydf-venv/bin/activate"
+          python -m pip install --upgrade pip
+          ./tools/build_test_linux.sh
+          ./tools/package_linux.sh
+
+      - name: Check wheel tag
+        working-directory: yggdrasil_decision_forests/port/python
+        run: |
+          shopt -s nullglob
+          wheels=(dist/ydf-*-cp${{ matrix.python_tag }}-cp${{ matrix.python_tag }}*-macosx_*.whl)
+          if [[ ${#wheels[@]} -lt 1 ]]; then
+            echo "No macOS cp${{ matrix.python_tag }} wheel in dist/"
+            ls -la dist || true
+            exit 1
+          fi
+          ls -lh "${wheels[@]}"
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ydf-cp${{ matrix.python_tag }}-macosx_arm64
+          path: yggdrasil_decision_forests/port/python/dist/*.whl
+          if-no-files-found: error

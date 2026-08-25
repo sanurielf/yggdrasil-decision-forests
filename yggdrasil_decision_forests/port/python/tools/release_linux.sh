@@ -15,8 +15,6 @@
 
 
 # Builds all python versions for release on Pypi
-#
-# CI: when true, skip TTY flags and bind-mount host cache directories.
 
 set -vex
 
@@ -28,54 +26,41 @@ fi
 
 function build_py() {
   VERSION=$1
-  COMPACT="${VERSION//./}"
   echo "Build YDF for python $VERSION"
 
-  # manylinux images keep CPython under /opt/python/cpXY-cpXY, not on PATH.
-  PY_CANDIDATE="/opt/python/cp${COMPACT}-cp${COMPACT}/bin/python"
-  PY_RESOLVE="if [ -x ${PY_CANDIDATE} ]; then PY=${PY_CANDIDATE}; else PY=python${VERSION}; fi"
-
   if [[ "$INTERACTIVE" = 1 ]]; then
-    CMD="${PY_RESOLVE}; \$PY -m venv /tmp/venv && source /tmp/venv/bin/activate && /bin/bash"
+    # Start an interactive shell with:
+    CMD="python$VERSION -m venv /tmp/venv && source /tmp/venv/bin/activate && /bin/bash"
     echo "In the interactive shell, you can run commands such as:"
     echo "Run all the tests: RUN_TESTS=1 ./tools/build_test_linux.sh"
     echo "or"
     echo "Create a release: RUN_TESTS=0 ./tools/build_test_linux.sh && ./tools/package_linux.sh"
   else
-    CMD="${PY_RESOLVE}; \$PY -m venv /tmp/venv && source /tmp/venv/bin/activate && RUN_TESTS=0 ./tools/build_test_linux.sh && ./tools/package_linux.sh"
+    # Note: set RUN_TESTS=1 to run the tests.
+    CMD="python$VERSION -m venv /tmp/venv && source /tmp/venv/bin/activate && RUN_TESTS=0 ./tools/build_test_linux.sh && ./tools/package_linux.sh"
   fi
 
-  local docker_tty=()
-  if [[ -t 1 && "${CI:-}" != "true" ]]; then
-    docker_tty=(-it)
-  fi
-
-  local cache_mount="pydf_bazel_cache_${VERSION}:/root/.cache"
-  local venv_mount="pydf_venv_cache_${VERSION}:/tmp/venv"
-  if [[ "${CI:-}" == "true" ]]; then
-    mkdir -p "${PWD}/../../../.ci-cache/bazel" "${PWD}/../../../.ci-cache/venv-${VERSION}"
-    cache_mount="${PWD}/../../../.ci-cache/bazel:/root/.cache"
-    venv_mount="${PWD}/../../../.ci-cache/venv-${VERSION}:/tmp/venv"
-  fi
+  # You can also start an interactive shell with:
+  # CMD="python$VERSION -m venv /tmp/venv && source /tmp/venv/bin/activate && /bin/bash"
+  # In the interactive shell, you can run commands such as "RUN_TESTS=1 ./tools/build_test_linux.sh"
 
   docker run \
-    -v "${venv_mount}" \
-    -v "${cache_mount}" \
-    -v "$(pwd)/../../../:/src" \
-    -e CI \
-    -e BAZEL_EXTRA_FLAGS \
+    -v pydf_venv_cache_$VERSION:/tmp/venv \
+    -v pydf_bazel_cache_$VERSION:/root/.cache \
+    -v $(pwd)/../../../:/src \
     -w /src/yggdrasil_decision_forests/port/python \
-    "${docker_tty[@]}" \
-    --rm \
+    -it --rm \
     build_pydf \
     "${CMD}"
 }
 
 function main() {
+  # Build docker image
   docker build -t build_pydf .
 
+  # Build ydf for each compatible python version
   for VERSION in ${PYTHON_VERSIONS[*]} ; do
-    build_py $VERSION
+    build_py $VERSION 
   done
 }
 

@@ -10,7 +10,6 @@
 -   Refactored C++ to Python custom loss and metric evaluation to perform safe
     memory copies instead of zero-copy array sharing. This simplifies memory
     management and avoids use-after-free bugs.
--   Enable support for Python 3.14.
 
 ## 0.16.1 - 2026-03-24
 
